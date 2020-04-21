@@ -68,12 +68,29 @@ y_predict = regressor.predict(x_test)
 y_predict = test_scaler.data_min_[0] + y_predict / test_scaler.scale_[0]
 
 
+# %% Calculate Error (diff with moving average)
+from sklearn.metrics import mean_squared_error
+
+test_data_ma = test_data["Open"].rolling(window=20).mean()
+mse = mean_squared_error(test_data_ma.tail(1000), y_predict.flatten()[-1000:])
+
 # %% Plot the Test & Prediction
 import plotly.graph_objects as go
 
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=test_data["Date"], y=test_data["Open"], mode="lines"))
 fig.add_trace(
-    go.Scatter(x=test_data["Date"].tail(1322), y=y_predict.flatten(), mode="lines")
+    go.Scatter(
+        x=test_data["Date"], y=test_data["Open"], mode="lines", name="Actual Price"
+    )
 )
-fig.show()
+fig.add_trace(
+    go.Scatter(
+        x=test_data["Date"].tail(1322),
+        y=y_predict.flatten(),
+        mode="lines",
+        name="Prediction",
+    )
+)
+title = "NFLX Prediction: MSE error: {mse:.2f}".format(mse = mse)
+fig.update_layout(title=title)
+fig.show(title="sss")
