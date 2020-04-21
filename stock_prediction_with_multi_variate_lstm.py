@@ -51,6 +51,7 @@ test_data = stock_history.iloc[TRAINING_LENGTH:, :]
 
 test_scaler = MinMaxScaler(feature_range=(0, 1))
 test_data_scaled = test_scaler.fit_transform(test_data)
+test_data = test_data.reset_index()
 
 # %% Run Prediction
 x_test, y_test = [], []
@@ -66,9 +67,13 @@ y_predict = regressor.predict(x_test)
 # %% Re-Scale the Prediction
 y_predict = test_scaler.data_min_[0] + y_predict / test_scaler.scale_[0]
 
-# %% Plot the Test & Prediction
 
-plt.figure(figsize=(14, 5))
-plt.plot(test_data.iloc[-50:, 0], color="red")
-plt.plot(y_predict[-50:, 0], color="orange")
-plt.show()
+# %% Plot the Test & Prediction
+import plotly.graph_objects as go
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(x=test_data["Date"], y=test_data["Open"], mode="lines"))
+fig.add_trace(
+    go.Scatter(x=test_data["Date"].tail(1322), y=y_predict.flatten(), mode="lines")
+)
+fig.show()
