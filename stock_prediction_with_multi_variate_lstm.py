@@ -5,8 +5,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 import math
+import tensorflow as tf
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, LSTM, Dropout
+from scipy.stats import pearsonr
+import datetime
 
 # %% Import data
 # stock = yf.Ticker("NFLX")
@@ -22,10 +25,11 @@ scaler = MinMaxScaler()
 training_data_scaled = scaler.fit_transform(training_data)
 
 x_train, y_train = [], []
+BATCH_SIZE = 20
 
-for i in range(30, len(training_data_scaled)):
-    x_train.append(training_data_scaled[i - 30 : i])
-    y_train.append(training_data_scaled[i, 0])
+for i in range(BATCH_SIZE, len(training_data_scaled)):
+    x_train.append(training_data_scaled[i - BATCH_SIZE : i])
+    y_train.append(training_data_scaled[i - BATCH_SIZE : i].mean())
 
 x_train, y_train = np.array(x_train), np.array(y_train)
 
@@ -40,11 +44,19 @@ regressor.add(
     )
 )
 regressor.add(Dropout(0.2))
+regressor.add(LSTM(units=120, activation="relu", return_sequences=True))
+regressor.add(Dropout(0.3))
 regressor.add(LSTM(units=120, activation="relu"))
 regressor.add(Dropout(0.3))
 regressor.add(Dense(units=1))
 regressor.compile(optimizer="adam", loss="mean_squared_error")
-regressor.fit(x_train, y_train, epochs=2, batch_size=10)
+
+log_dir = "logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
+regressor.fit(
+    x_train, y_train, epochs=2, batch_size=BATCH_SIZE, callbacks=[tensorboard_callback]
+)
 
 # %% Prepare Test Data
 test_data = stock_history.iloc[TRAINING_LENGTH:, :]
@@ -53,31 +65,34 @@ test_scaler = MinMaxScaler(feature_range=(0, 1))
 test_data_scaled = test_scaler.fit_transform(test_data)
 test_data = test_data.reset_index()
 
-# %% Run Prediction
-x_test, y_test = [], []
+# %% Prepare Test data & Run Prediction
+x_test = []
 
-for i in range(30, len(test_data_scaled)):
-    x_test.append(test_data_scaled[i - 30 : i])
-    y_test.append(test_data_scaled[i, 0])
+for i in range(BATCH_SIZE, len(test_data_scaled)):
+    x_test.append(test_data_scaled[i - BATCH_SIZE : i])
 
-x_test, y_test = np.array(x_test), np.array(y_test)
+x_test = np.array(x_test)
 
 y_predict = regressor.predict(x_test)
-
-# %% Re-Scale the Prediction
-y_predict = test_scaler.data_min_[0] + y_predict / test_scaler.scale_[0]
-
 
 # %% Calculate Error (diff with moving average)
 from sklearn.metrics import mean_squared_error
 
-test_data_ma = test_data["Open"].rolling(window=20).mean()
+y_predict = test_scaler.data_min_[0] + y_predict / test_scaler.scale_[0]
+
+test_data_ma = test_data["Open"].rolling(window=BATCH_SIZE).mean()
 mse = mean_squared_error(test_data_ma.tail(1000), y_predict.flatten()[-1000:])
+
+# %% Calculate Correlation between prediction and test_data
+correlation_ = pearsonr(test_data_ma.tail(1000), y_predict.flatten()[-1000:])
 
 # %% Plot the Test & Prediction
 import plotly.graph_objects as go
 
 fig = go.Figure()
+fig.add_trace(
+    go.Scatter(x=test_data["Date"], y=test_data_ma, mode="lines", name="Moving Average")
+)
 fig.add_trace(
     go.Scatter(
         x=test_data["Date"], y=test_data["Open"], mode="lines", name="Actual Price"
@@ -91,6 +106,6 @@ fig.add_trace(
         name="Prediction",
     )
 )
-title = "NFLX Prediction: MSE error: {mse:.2f}".format(mse = mse)
+title = "NFLX Prediction: MSE error: {mse:.2f}".format(mse=mse)
 fig.update_layout(title=title)
-fig.show(title="sss")
+fig.show()
