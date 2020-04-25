@@ -6,4 +6,4 @@
 
 <img src="./plots/nflx-prediction.png" width="800" height="400">
 
-<img src="./plots/tensorboard.png" width="800" height="400">
+<img src="./plots/tensorboard.png" width="600" height="400">
