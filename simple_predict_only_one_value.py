@@ -42,7 +42,9 @@ regressor.add(Dropout(0.3))
 regressor.add(Dense(units=1))
 
 regressor.compile(
-    optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"]
+    optimizer="adam",
+    loss="sparse_categorical_crossentropy",
+    metrics=["sparse_categorical_accuracy"],
 )
 
 # %% Train model
@@ -60,3 +62,4 @@ _, accuracy = regressor.evaluate(x_test, y_test, batch_size=BATCH_SIZE)
 y_predict = regressor.predict(x_test)
 
 print(accuracy)
+print(y_predict)
