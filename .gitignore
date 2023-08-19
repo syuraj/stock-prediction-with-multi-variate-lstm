@@ -1,2 +1,5 @@
 .vscode/*
 logs/*
+.venv/*
+__pycache__/*
+structured_data_regressor/*
